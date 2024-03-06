@@ -1,0 +1,8 @@
+arena_x(cm) = 50
+arena_y(cm) = 50
+Threshold(0-1) = 0.1
+Erosion(pixels) = 4
+Speed_Threshold(cm/s) = 2
+Area_Threshold(pixels) = 50
+Theta(degrees) = 240
+N_frames = 10
