@@ -8,4 +8,4 @@ A free open source tracking tool for behavioral experiments
 TrAQ (Tracking rodents in L'Aquila) is a new MATLAB-based tracking software for video analysis, developed to minimize the user interventions and allows processing of multiple videos. TrAQ allows automatic recognition of the animal and arena, providing the position of the animal's centroid, head and tail.
 
 # Installation
-In order to use TrAQ the Software folder must be added to the MATLAB path and can be launched typing >>TrAQ in the MATLAB command prompt.
+To use TrAQ it's enough to add the Software folder to the MATLAB path and type "TrAQ" in the MATLAB command prompt.
