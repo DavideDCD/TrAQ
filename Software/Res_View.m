@@ -158,15 +158,15 @@ end
 
 [P, base_name , ~] = fileparts(vidfilename);
 data_dir = [P filesep 'Results' filesep 'Raw' filesep 'Data'];
-data_file_name = [data_dir filesep base_name '_data'];
+data_file_name = [data_dir filesep base_name '_data.mat'];
 StrTrack=[P filesep 'Results' filesep 'Raw' filesep 'Out_' base_name];
 trackdata=[P filesep 'Results' filesep 'Out_' base_name];
 load(data_file_name);
 handles.data=data;
-x1=min(handles.data.arena(:,1));
-x2=max(handles.data.arena(:,1));
-y1=min(handles.data.arena(:,2));
-y2=max(handles.data.arena(:,2));
+x1=round(min(handles.data.arena(:,1)));
+x2=round(max(handles.data.arena(:,1)));
+y1=round(min(handles.data.arena(:,2)));
+y2=round(max(handles.data.arena(:,2)));
 handles.lvl=mean(mean(data.Bkg(y1:y2,x1:x2)));
 try
     Tracked=load(trackdata);
