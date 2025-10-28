@@ -1195,7 +1195,7 @@ catch
     save(StrFile_out, 'data','track')
 end
 
-data_export(handles,i_first,i_last)
+data_export(handles,i_first,i_last,vidfilename)
 msgbox(['data exported']);
 
 % handles    structure with handles and user data (see GUIDATA)
