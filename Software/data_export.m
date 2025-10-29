@@ -1,5 +1,4 @@
-function data_export(handles,i_first,i_last)
-global vidfilename
+function data_export(handles,i_first,i_last,vidfilename)
 [P, base_name , ~] = fileparts(vidfilename);
 Time=handles.Time(i_first:i_last);
 Centre=handles.Centre;
