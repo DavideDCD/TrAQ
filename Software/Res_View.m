@@ -163,10 +163,23 @@ StrTrack=[P filesep 'Results' filesep 'Raw' filesep 'Out_' base_name];
 trackdata=[P filesep 'Results' filesep 'Out_' base_name];
 load(data_file_name);
 handles.data=data;
+if ~isfield(handles.data, 'arena') || ~ismatrix(handles.data.arena) || size(handles.data.arena,1) < 2
+    msgbox('Please define the Arena');
+    uiwait
+    define_arena(data.Bkg);
+    uiwait
+    handles.data.arena=evalin('base','arena');
+    handles.data.arena_centre=evalin('base','arena_centre');
+    data.arena = handles.data.arena;
+    data.arena_centre = handles.data.arena_centre;
+    save(data_file_name, 'data');
+end
 x1=round(min(handles.data.arena(:,1)));
 x2=round(max(handles.data.arena(:,1)));
 y1=round(min(handles.data.arena(:,2)));
 y2=round(max(handles.data.arena(:,2)));
+if x1 < 1, x1=1; end
+if y1 < 1, y1=1; end
 handles.lvl=mean(mean(data.Bkg(y1:y2,x1:x2)));
 try
     Tracked=load(trackdata);
