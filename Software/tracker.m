@@ -30,6 +30,9 @@ y1=round(min(vertices(:,2)));
 y2=round(max(vertices(:,2)));
 if x1 < 1, x1=1; end
 if y1 < 1, y1=1; end
+[img_height, img_width] = size(data.Bkg);
+if x2 > img_width, x2 = img_width; end
+if y2 > img_height, y2 = img_height; end
 handles.lvl=mean(mean(data.Bkg(y1:y2,x1:x2)));
 if handles.lvl>100
     Bkg=255-data.Bkg;

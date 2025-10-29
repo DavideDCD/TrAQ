@@ -180,6 +180,9 @@ y1=round(min(handles.data.arena(:,2)));
 y2=round(max(handles.data.arena(:,2)));
 if x1 < 1, x1=1; end
 if y1 < 1, y1=1; end
+[img_height, img_width] = size(data.Bkg);
+if x2 > img_width, x2 = img_width; end
+if y2 > img_height, y2 = img_height; end
 handles.lvl=mean(mean(data.Bkg(y1:y2,x1:x2)));
 try
     Tracked=load(trackdata);
@@ -1067,6 +1070,10 @@ function oden_video_axes_CreateFcn(~, ~, ~)
 function export_data_button_Callback(~, ~, handles)
 % hObject    handle to export_data_button (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
+if ~isfield(handles, 'data')
+    errordlg('Data not loaded. Please select a video file first.');
+    return;
+end
 global vidfilename
 [P, base_name , ~] = fileparts(vidfilename);
 X1=round(min(handles.data.arena(:,1)));
@@ -1417,8 +1424,12 @@ vidfilename = [handles.video_dir_text.String filesep video_file{get(handles.vide
 
 [P, base_name , ~] = fileparts(vidfilename);
 zones_dir = [P filesep 'Results' filesep 'Raw' filesep 'Zones'];
-zonesfilename = [zones_dir filesep base_name '_zones'];
+zonesfilename = [zones_dir filesep base_name '_zones.mat'];
 
+if ~exist(zonesfilename, 'file')
+    errordlg('Zones file not found. Please define zones first.');
+    return;
+end
 a=load(zonesfilename);
 handles.zones=a.ROIs;
 
@@ -1475,6 +1486,10 @@ function realize_video_Callback(~, ~, handles)
 % hObject    handle to realize_video (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+if ~isfield(handles, 'data')
+    errordlg('Data not loaded. Please select a video file first.');
+    return;
+end
 global video vidfilename
 [P, base_name , ~] = fileparts(vidfilename);
 StrFile_out=[P filesep 'Video_' base_name '.avi'];
@@ -1584,6 +1599,10 @@ function bkg_video_Callback(hObject, eventdata, handles)
 % hObject    handle to bkg_video (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+if ~isfield(handles, 'data')
+    errordlg('Data not loaded. Please select a video file first.');
+    return;
+end
 global video vidfilename
 [P, base_name , ~] = fileparts(vidfilename);
 StrFile_out=[P filesep 'BkgVideo_' base_name '.avi'];
@@ -1692,6 +1711,10 @@ function fill_gap_in_data_Callback(hObject, eventdata, handles)
 % hObject    handle to fill_gap_in_data (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+if ~isfield(handles, 'track') || ~isfield(handles, 'data')
+    errordlg('Data not loaded. Please select a video file first.');
+    return;
+end
 Tracked=handles.track.Tracked;
 i_first=handles.data.i_start;
 i_last=handles.data.i_end;
