@@ -14,6 +14,11 @@ D1=X2-X1;
 Xaxis=str2double(handles.data.arena_x);
 Yaxis=str2double(handles.data.arena_y);
 pixels_per_cm=D1/Xaxis;
+if ~isfield(handles, 'zones') || ~isstruct(handles.zones)
+    errordlg('No zones defined. Please define or load zones first.', 'Zone Error');
+    stats = [];
+    return;
+end
 zones = handles.zones;
 zone_names = {zones.name};
 

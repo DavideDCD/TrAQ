@@ -19,11 +19,20 @@ FrameRate=video.FrameRate;
 Temp=0:1/FrameRate:(nFrames_tot-1)/FrameRate;
 color_space=data.color_space;
 
+if ~isfield(data, 'arena') || ~ismatrix(data.arena) || size(data.arena,1) < 2
+    errordlg('Arena not defined for the current video. Please define it through the Res_View panel first.');
+    return;
+end
 vertices = data.arena;
-x1=round(vertices(1,1));
-x2=round(vertices(2,1));
-y1=round(vertices(1,2));
-y2=round(vertices(end-1,2));
+x1=round(min(vertices(:,1)));
+x2=round(max(vertices(:,1)));
+y1=round(min(vertices(:,2)));
+y2=round(max(vertices(:,2)));
+if x1 < 1, x1=1; end
+if y1 < 1, y1=1; end
+[img_height, img_width] = size(data.Bkg);
+if x2 > img_width, x2 = img_width; end
+if y2 > img_height, y2 = img_height; end
 handles.lvl=mean(mean(data.Bkg(y1:y2,x1:x2)));
 if handles.lvl>100
     Bkg=255-data.Bkg;
