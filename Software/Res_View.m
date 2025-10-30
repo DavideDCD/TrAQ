@@ -1146,7 +1146,7 @@ handles.Teta=(atan2((Head(2,:)-Centroid(2,:)),(Head(1,:)-Centroid(1,:))));
 Vx=zeros(1,length(Centroid));
 Vy=zeros(1,length(Centroid));
 
-for i=i_first:i_last
+for i=i_first:i_last-1
     Vx(i)=(Centroid(1,i+1)-Centroid(1,i))/(handles.Time(i+1)-handles.Time(i));
     Vy(i)=(Centroid(2,i+1)-Centroid(2,i))/(handles.Time(i+1)-handles.Time(i));
 end
@@ -1466,8 +1466,10 @@ function load_zones_Callback(hObject, ~, handles)
 
 [File, Directory] = uigetfile({'*.*','All Files (*.*)'},'Select the file', path);
 
+if isequal(File,0)
+   return;
+end
 zonesfilename = [Directory filesep File];
-
 a=load(zonesfilename);
 handles.zones=a.ROIs;
 
