@@ -1,31 +1,36 @@
 function [Bkg]=Backgrounder(video,vidHeight,vidWidth,i_start,i_end,color_space)
 
-if 	strcmp(color_space,'grays')==1
-    color = 4;
-elseif strcmp(color_space,'red')==1
-    color = 1;
-elseif strcmp(color_space,'green')==1
-    color = 2;
-elseif strcmp(color_space,'blue')==1
-    color = 3;
-end
-
-Matrix_Histo=int16(zeros(vidHeight*vidWidth,256) );
-tic
-for i = 1:100
-    if color ==4
-        frame=reshape(rgb2gray(read(video,randi([i_start,i_end]))),[],1);
-    else
-            frame=(read(video,randi([i_start,i_end])));
-            frame=frame(:,:,color);
-            frame=reshape(frame,[],1);
+nSamples = 100;
+    
+    % Frame stack preallocation (H x W x N_frames)
+    frameStack = zeros(vidHeight, vidWidth, nSamples, 'uint8');
+    
+    % generate random indeces
+    randIndices = randi([i_start, i_end], 1, nSamples);
+    
+    % color channel selection
+    channelMap = containers.Map({'red','green','blue','grays'}, {1, 2, 3, 0});
+    chan = channelMap(color_space);
+    
+    disp(['Calculating Bacground over ', num2str(nSamples), ' frames...']);
+    
+    for i = 1:nSamples
+        video.CurrentTime = (randIndices(i) - 1) / video.FrameRate;
+        
+        rawFrame = readFrame(video);
+        
+        if size(rawFrame, 3) == 3
+            if chan == 0 % Grays
+                frameStack(:,:,i) = rgb2gray(rawFrame);
+            else % Color channel
+                frameStack(:,:,i) = rawFrame(:,:,chan);
+            end
+        else
+            frameStack(:,:,i) = rawFrame;
+        end
     end
-    for k=1:vidHeight*vidWidth
-        a=frame(k)+1;
-        Matrix_Histo(k,a)=Matrix_Histo(k,a)+1;
-    end
-end
-
-[~,Bkg] = max(Matrix_Histo,[],2);
-Bkg=uint8(reshape(Bkg,vidHeight,vidWidth)-1);
+        
+    Bkg = mode(frameStack, 3);
+    
+    disp('Done');
 end
