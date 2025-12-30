@@ -1,6 +1,6 @@
 function [Bkg]=Backgrounder(video,vidHeight,vidWidth,i_start,i_end,color_space)
 
-nSamples = 100;
+nSamples = 50;
     
     % Frame stack preallocation (H x W x N_frames)
     frameStack = zeros(vidHeight, vidWidth, nSamples, 'uint8');
@@ -12,7 +12,7 @@ nSamples = 100;
     channelMap = containers.Map({'red','green','blue','grays'}, {1, 2, 3, 0});
     chan = channelMap(color_space);
     
-    disp(['Calculating Bacground over ', num2str(nSamples), ' frames...']);
+    disp(['Calculating Bacgkround over ', num2str(nSamples), ' random frames...']);
     
     for i = 1:nSamples
         video.CurrentTime = (randIndices(i) - 1) / video.FrameRate;

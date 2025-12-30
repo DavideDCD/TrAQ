@@ -58,9 +58,9 @@ imshow(Logo,[])
 
 calling_fig_handles = varargin{end}; % which is the main zone figure
 contents = cellstr(get(calling_fig_handles.video_file_listbox,'String')); 
-vidfilename = [calling_fig_handles.video_dir_text.String filesep contents{get(calling_fig_handles.video_file_listbox,'Value')}];
+handles.vidfilename = [calling_fig_handles.folder_name filesep contents{get(calling_fig_handles.video_file_listbox,'Value')}];
 
-[P, base_name , ~] = fileparts(vidfilename);
+[P, base_name , ~] = fileparts(handles.vidfilename);
     data_dir = [P filesep 'Results' filesep 'Raw' filesep 'Data'];
 data_file_name = [data_dir filesep base_name,'_data.mat'];
 load(data_file_name);
@@ -79,7 +79,7 @@ UD.colors = [1 0 0; 0 1 0; 0 0 1 ; 1 1 0 ; 1 0 1; 0 1 1 ;  0 1 0.5];
 
 Frame = Bkg;
 current_image_h = imshow(Frame,[]);
-UD.vidfilename=vidfilename;
+UD.vidfilename=handles.vidfilename;
 UD.ImageSizeInPixels = [size(Frame,1) size(Frame,2)];
 UD.current_image_h = current_image_h;
 handles.UD = UD;

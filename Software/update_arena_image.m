@@ -1,7 +1,6 @@
 function update_arena_image(handles)
-global video
 fn = round(str2double(get(handles.current_frame_edit,'String')));
-Frame = read(video,fn);
+Frame = read(handles.video,fn);
 cla(handles.main_video_axes);
 axes(handles.main_video_axes);
 h = imshow(Frame);

@@ -1,305 +1,170 @@
-function tracker(handles)
-global video vidfilename
 
-if exist ('File')==1
-    File=evalin('base','File');
-    if strcmp(File,vidfilename(r+2:end-4))==0
-        disp ('Wrong Video');
-        return
+function track = tracker(data, handles)
+% Input:
+%   vObj: VideoReader object
+%   startFrame, endFrame
+%   data: struct containing .Bkg .GreyThresh, .Erosion, .Area_th, .LiveView
+
+    % --- setting up ---
+
+    vObj = handles.video;
+    startFrame = data.i_start;
+    endFrame = data.i_end; % Define endFrame based on input data
+    nFrames = endFrame - startFrame + 1;
+    track.Centroid = nan(2, endFrame);
+    track.Head     = nan(2, endFrame);
+    track.Tail     = nan(2, endFrame);
+    track.Area     = nan(1, endFrame);
+    track.Tracked   = zeros(1,endFrame);
+    track.Eccentricity = nan(1, endFrame);
+    track.EulerNumber = nan(1, endFrame);
+    track.ConvexHull = {};
+    track.Axes  = nan(2, endFrame);
+    Bkg = single(data.Bkg);
+    avgBkg = mean(Bkg(:));    
+    vObj.CurrentTime = (startFrame - 1) / vObj.FrameRate;
+    
+    % Setup live view
+    if data.LiveView
+        axes(handles.sec_video_axes)
+        hIm = imshow(zeros(size(Bkg),'uint8'),[0 1]); 
+        hold on;
+        hPt = plot(0,0,'g+','MarkerSize',10);
     end
-end
-[P, base_name , ~] = fileparts(vidfilename);
-data_dir = [P filesep 'Results' filesep 'Raw' filesep 'Data'];
-data_file_name = [data_dir filesep base_name '_data.mat'];
-load(data_file_name);
+    
+    % erosion
+    se = strel('disk', max(1, floor(data.Erosion)));
+    useErosion = data.Erosion > 0;
 
-%% Read video into MATLAB using aviread
-nFrames_tot = data.nFrames_tot;
-FrameRate=video.FrameRate;
-Temp=0:1/FrameRate:(nFrames_tot-1)/FrameRate;
-color_space=data.color_space;
-
-if ~isfield(data, 'arena') || ~ismatrix(data.arena) || size(data.arena,1) < 2
-    errordlg('Arena not defined for the current video. Please define it through the Res_View panel first.');
-    return;
-end
-vertices = data.arena;
-x1=round(min(vertices(:,1)));
-x2=round(max(vertices(:,1)));
-y1=round(min(vertices(:,2)));
-y2=round(max(vertices(:,2)));
-if x1 < 1, x1=1; end
-if y1 < 1, y1=1; end
-[img_height, img_width] = size(data.Bkg);
-if x2 > img_width, x2 = img_width; end
-if y2 > img_height, y2 = img_height; end
-handles.lvl=mean(mean(data.Bkg(y1:y2,x1:x2)));
-if handles.lvl>100
-    Bkg=255-data.Bkg;
-    data.GreyThresh = 1 - data.GreyThresh;
-else
-    Bkg=data.Bkg;
-end
-
-Erosion=data.Erosion;
-vidHeight=data.vidHeight;
-vidWidth=data.vidWidth;
-i_start=data.i_start;
-i_end=data.i_end;
-try
-    [Signal_avg,~]=ratfinder(Bkg,video,i_start,nFrames_tot,handles.lvl);
-catch
-    %use this function to get the rat ROI if the autodetection fails
-    CurrFrame = im2double(rgb2gray(read(video,i_start))) ;
-    clear k point1 finalRect point2 p1 offset
-    figure
-    imshow(CurrFrame,[])
-    hold on
-    prompt = {'Press OK then specify a ROI on the animal'};
-    inputdlg(prompt, '',0.01);
-    [size1, size2]=size(CurrFrame);
-    waitforbuttonpress;
-    point1 = get(gca,'CurrentPoint');    % button down detected
-    rbbox;                               % return figure units
-    point2 = get(gca,'CurrentPoint');    % button up detected
-    point1 = point1(1,1:2);              % extract x and y
-    point2 = point2(1,1:2);
-    p1 = min(point1,point2);             % calculate locations
-    offset = abs(point1-point2);         % and dimensions
-    xCoords = [p1(1) p1(1)+offset(1) p1(1)+offset(1) p1(1) p1(1)];
-    yCoords = [p1(2) p1(2) p1(2)+offset(2) p1(2)+offset(2) p1(2)];
-    x1 = round(xCoords(1));
-    x2 = round(xCoords(2));
-    y1 = round(yCoords(5));
-    y2 = round(yCoords(3));
-    if x1<1, x1=1; end
-    if x1>size2, x1=size2; end
-    if x2<1, x2=1; end
-    if x2>size2, x2=size2; end
-    if y1<1, y1=1; end
-    if y1>size1, y1=size1; end
-    if y2<1, y2=1; end
-    if y2>size1, y2=size1; end
-    [x1 x2 y1 y2];
-    axis manual
-    p1=plot(xCoords, yCoords); % redraw in dataspace units
-    set(p1,'Color','red','LineWidth',2)
-    Rat = CurrFrame(y1:y2,x1:x2);
-    Signal_avg=mean(mean(Rat));
-end
-GreyThresh = (Signal_avg^2)*data.GreyThresh;
-
-disp(['**** Video ', get(handles.video_file_listbox,'Value'),' **** '])
-disp([num2str(nFrames_tot), ' frames'])
-disp([num2str(vidWidth), ' x ',num2str(vidHeight),' size' ])
-disp([num2str(FrameRate), ' frames per second'])
-disp([num2str((nFrames_tot-1)/FrameRate), ' s total duration'])
-disp(' ')
-disp('**** Video Tracking **** ')
-disp([' You have selected ',num2str(i_end-i_start+1), ' frames to Track'])
-disp(' ')
-
-if data.arena==0
-else
-    F=roipoly(vidHeight,vidWidth,data.arena(:,1),data.arena(:,2));
-end
-
-% ***********************************
-% 3 ----> Tracking algorithm
-% ***********************************
-disp('')
-disp('Movie analized...')
-disp(['Discard first ',num2str(i_start-1),' frames'])
-Time(:) = Temp;
-Centroid(1:2,:) = zeros(2,nFrames_tot);
-Head(1:2,:) = zeros(2,nFrames_tot);
-Tail(1:2,:) = zeros(2,nFrames_tot);
-Area(1,:) = zeros(1,nFrames_tot);
-Axes(1:2,:) = zeros(2,nFrames_tot);
-Tracked(1,:) = zeros(1,nFrames_tot);    % flag 1 if ok, 0 otherwise
-Eccentricity(1,:) = zeros(1,nFrames_tot);
-EulerNumber(1,:) = zeros(1,nFrames_tot);
-ConvexHull{1,:}= zeros(1,nFrames_tot);
-
-if 	strcmp(color_space,'grays')==1
-    color = 4;
-elseif strcmp(color_space,'red')==1
-    color = 1;
-elseif strcmp(color_space,'green')==1
-    color = 2;
-elseif strcmp(color_space,'blue')==1
-    color = 3;
-end
-
-axes(handles.sec_video_axes);
-
-if color==4
-    tic
-    for i_frame = i_start:i_end
-        if i_frame==i_start+51
-            elapsedTime = toc;
-            disp([num2str(round((i_end-i_start+1)/(50*60)*elapsedTime)),' min to complete the tracking']),
-        end
-        j = i_frame-i_start+1;
-        if rem(j,100)==0, disp([num2str(j),' of ', num2str(i_end-i_start+1)]), end
-        if handles.lvl>100
-            CurrFrame=(255-(rgb2gray(read(video,i_frame))));
-            if data.arena==0
-                CurrFrame=(single(CurrFrame-(Bkg)).^2);
-            else
-                CurrFrame=(single(CurrFrame-(Bkg)).^2).*F;
-            end
-        else
-            CurrFrame=(rgb2gray(read(video,i_frame)));
-            if data.arena==0
-                CurrFrame=(single(CurrFrame-(Bkg)).^2);
-            else
-                CurrFrame=(single(CurrFrame-(Bkg)).^2).*F;
-            end
-        end
-        BW = imerode(imbinarize(CurrFrame,GreyThresh),strel('disk',floor(Erosion)));
-        [xhead,yhead,xtail,ytail,maxArea,cc,majoraxis,minoraxis,eccentricity,vertices,eulernumber,~,flag]=getcoordinates(BW,handles.Area_th,Erosion);
+    % --- Tracking ---
+    hWait = waitbar(0, 'Tracking...');
+    
+    track.Time=0:1/vObj.FrameRate:(endFrame-1)/vObj.FrameRate;
+    count = 0;
+    while hasFrame(vObj) && count < nFrames
+        count = count + 1;
         
-        if get(handles.live_tracking, 'Value') == 1
-            imshow(BW,[]);
-            hold on
-            plot(cc(1),cc(2),'g+')
-            hold off
+        rawFrame = readFrame(vObj);
+        
+        % grayscale conversion
+        if size(rawFrame, 3) == 3
+            currFrame = single(rgb2gray(rawFrame));
+        else
+            currFrame = single(rawFrame);
         end
         
-        if flag ==0
-            if i_frame>i_start+2
-                Centroid(1,i_frame)=Centroid(1,i_frame-1);
-                Centroid(2,i_frame)=Centroid(2,i_frame-1);
-                Head(1,i_frame)=Head(1,i_frame-1);
-                Head(2,i_frame)=Head(2,i_frame-1);
-                Tail(1,i_frame)=Tail(1,i_frame-1);
-                Tail(2,i_frame)=Tail(2,i_frame-1);
-                Area(1,i_frame) =Area(1,i_frame-1);
-                Axes(1,i_frame)=Axes(1,i_frame-1); % Axes lenght
-                Axes(2,i_frame)=Axes(2,i_frame-1);
-                Eccentricity(1,i_frame) = Eccentricity(1,i_frame-1);
-                EulerNumber(1,i_frame) = EulerNumber(1,i_frame-1);
-                ConvexHull{i_frame}=ConvexHull{i_frame-1};
-            end
+        % Background subtraction
+        if avgBkg > 100
+             diffFrame = (single(255) - currFrame) - (single(255) - Bkg);
         else
-            Tracked(1,i_frame)=1;
-            Centroid(1,i_frame)=cc(1);
-            Centroid(2,i_frame)=cc(2);
-            Head(1,i_frame)=xhead;
-            Head(2,i_frame)=yhead;
-            Tail(1,i_frame)=xtail;
-            Tail(2,i_frame)=ytail;
-            Area(1,i_frame) =maxArea;
-            Axes(1,i_frame)=majoraxis; % Axes lenght
-            Axes(2,i_frame)=minoraxis;
-            Eccentricity(1,i_frame) = eccentricity;
-            EulerNumber(1,i_frame) = eulernumber;
-            ConvexHull{i_frame}=vertices;
+             diffFrame = currFrame - Bkg;
         end
-        if j==1
-            whos
+        
+        % increase differences
+        diffFrame = diffFrame .^ 2;
+        
+        % image normalization and binarization
+        maxVal = max(diffFrame(:));
+        if maxVal > 0
+            diffFrame = diffFrame / maxVal;
         end
-        clear markimg labelimg
+                BW = imbinarize(diffFrame, data.GreyThresh);
+        
+        if useErosion
+            BW = imerode(BW, se);
+        end
+        
+        % Blob analysis
+        props = regionprops(BW, {'Area', 'Centroid', 'PixelList','MajorAxisLength','MinorAxisLength', 'Eccentricity','ConvexHull','EulerNumber'});
+        
+        found = false;
+        if ~isempty(props)
+            % find biggest blob
+            [maxArea, idx] = max([props.Area]);
+            
+            if maxArea > data.Area_th
+                found = true;
+                blob = props(idx);
+                
+                % save data
+                track.Area(count + startFrame - 1) = maxArea;
+                track.Centroid(:, count + startFrame - 1) = blob.Centroid';
+                track.Eccentricity(count + startFrame - 1) = blob.Eccentricity;
+                track.EulerNumber(count + startFrame - 1) = blob.EulerNumber;
+                track.ConvexHull{count + startFrame - 1} = blob.ConvexHull;               
+                track.Axes(1,count + startFrame - 1) = blob.MajorAxisLength;
+                track.Axes(2,count + startFrame - 1) = blob.MinorAxisLength;
+                
+                
+                % --- Head&tail localization ---
+                pixels = blob.PixelList; % [x, y]
+                if useErosion
+                    dists = sum((pixels - blob.Centroid).^2, 2); % calculate head-tail position using quadratic distance
+                    [~, idxHead] = max(dists);
+                    headPos = pixels(idxHead, :);
+
+                    distsFromHead = sum((pixels - tailPos).^2, 2);
+                    [~, idxTail] = max(distsFromHead);
+                    tailPos = pixels(idxTail, :);
+
+                    track.Tail(:, count + startFrame - 1) = tailPos';
+                    track.Head(:, count + startFrame - 1) = headPos';
+                else
+                    BW1 = false(size(BW));
+                    ind = sub2ind(size(BW), pixels(:,2), pixels(:,1));
+                    BW1(ind) = 1;
+                    % Identify the tail as the farthest point from centroid
+                    dists = bwdistgeodesic(BW1,floor(blob.Centroid(1)),floor(blob.Centroid(2)),'quasi-euclidean'); % calculate head-tail position using geodesic distance
+                    [~,val_max_idx] = max(dists(:));
+                    [tailPos(2), tailPos(1)] = ind2sub(size(dists),val_max_idx);
+                    
+                    % Identify the head as the fartherst point from the tail
+                    dists = bwdistgeodesic(BW1,floor(tailPos(1)),floor(tailPos(2)),'quasi-euclidean');
+                    [~,val_max_idx] = max(dists(:));
+                    [headPos(2), headPos(1)] = ind2sub(size(dists),val_max_idx);
+
+                    track.Tail(:, count + startFrame - 1) = tailPos';
+                    track.Head(:, count + startFrame - 1) = headPos';
+                end
+                track.Tracked(count + startFrame - 1) = 1;
+            end
+        end
+        
+        % handling errors
+        if ~found && count > 1
+            track.Centroid(:, count) = track.Centroid(:, count-1);
+            track.Head(:, count)     = track.Head(:, count-1);
+            track.Tail(:, count)     = track.Tail(:, count-1);
+        end
+
+        % Update live video
+        if data.LiveView && mod(count, 3) == 0
+            set(hIm, 'CData', BW);
+            if found
+                set(hPt, 'XData', track.Centroid(1,count + startFrame - 1), 'YData', track.Centroid(2,count + startFrame - 1));
+            end
+            drawnow limitrate;
+        end
+        
+        % waitbar update every 50 frame
+        if mod(count, 50) == 0
+            waitbar(count / nFrames, hWait);
+        end
     end
-    disp(['Discard last ',num2str(nFrames_tot-i_end-1),' frames'])
-    toc
-else
-    for i_frame = i_start:i_end
-        if i_frame==i_start+51
-            elapsedTime = toc;
-            disp([num2str(round((i_end-i_start+1)/(50*60)*elapsedTime)),' min to complete the tracking']),
-        end
-        j = i_frame-i_start+1;
-        if rem(j,100)==0, disp([num2str(j),' of ', num2str(i_end-i_start+1)]), end
-        if handles.lvl>100
-            CurrFrame=(read(video,i_frame));
-            CurrFrame=255-(CurrFrame(:,:,color));
-            if data.arena==0
-                CurrFrame=(single(CurrFrame-(Bkg)).^2);
-            else
-                CurrFrame=(single(CurrFrame-(Bkg)).^2).*F;
-            end
-        else
-            CurrFrame=(read(video,i_frame));
-            CurrFrame=CurrFrame(:,:,color);
-            if data.arena==0
-                CurrFrame=(single(CurrFrame-(Bkg)).^2);
-            else
-                CurrFrame=(single(CurrFrame-(Bkg)).^2).*F;
-            end
-        end
-        BW = imerode(imbinarize(CurrFrame,GreyThresh),strel('disk',Erosion));
-        [xhead,yhead,xtail,ytail,maxArea,cc,majoraxis,minoraxis,eccentricity,vertices,eulernumber,~,flag]=getcoordinates(BW,handles.Area_th,Erosion);
-        
-        if get(handles.live_tracking, 'Value') == 1
-            imshow(BW,[]);
-            hold on
-            plot(cc(1),cc(2),'g+')
-            hold off
-        end
-        
-        if flag ==0
-            if i_frame>i_start+2
-                Centroid(1,i_frame)=Centroid(1,i_frame-1);
-                Centroid(2,i_frame)=Centroid(2,i_frame-1);
-                Head(1,i_frame)=Head(1,i_frame-1);
-                Head(2,i_frame)=Head(2,i_frame-1);
-                Tail(1,i_frame)=Tail(1,i_frame-1);
-                Tail(2,i_frame)=Tail(2,i_frame-1);
-                Area(1,i_frame) =Area(1,i_frame-1); % mass of the centroid
-                Axes(1,i_frame)=Axes(1,i_frame-1);  % Axes lenght
-                Axes(2,i_frame)=Axes(2,i_frame-1);
-                Eccentricity(1,i_frame) = Eccentricity(1,i_frame-1);
-                EulerNumber(1,i_frame) = EulerNumber(1,i_frame-1);
-                ConvexHull{i_frame}=ConvexHull{i_frame-1};
-            end
-        else
-            Tracked(1,i_frame)=1;
-            Centroid(1,i_frame)=cc(1);
-            Centroid(2,i_frame)=cc(2);
-            Head(1,i_frame)=xhead;
-            Head(2,i_frame)=yhead;
-            Tail(1,i_frame)=xtail;
-            Tail(2,i_frame)=ytail;
-            Area(1,i_frame) =maxArea;  % mass of the centroid
-            Axes(1,i_frame)=majoraxis; % Axes lenght
-            Axes(2,i_frame)=minoraxis;
-            Eccentricity(1,i_frame) = eccentricity;
-            EulerNumber(1,i_frame) = eulernumber;
-            ConvexHull{i_frame}=vertices;
-        end
-        if j==1
-            whos
-        end
-        clear markimg labelimg
-    end
-    disp(['Discard last ',num2str(nFrames_tot-i_end-1),' frames'])
-    toc
-end
+    
+    close(hWait);
 
-% Data Structure for Output
-track.Centroid = Centroid;
-track.Head = Head;
-track.Tail = Tail;
-track.Area = Area;
-track.Axes = Axes;
-track.Tracked = Tracked;
-track.Time = Time;
-track.Eccentricity=Eccentricity;
-track.EulerNumber=EulerNumber;
-track.ConvexHull=ConvexHull;
-track.GreyThresh = GreyThresh;
+track.GreyThresh = data.GreyThresh;
 
 % Output
 video_file = cellstr(get(handles.video_file_listbox,'String'));
-file=video_file{get(handles.video_file_listbox,'Value')};
-pFrames=sum(Tracked(1,i_start:i_end))/(i_end-i_start+1)*100;
+file = video_file{get(handles.video_file_listbox,'Value')};
+pFrames = sum(track.Tracked)/(endFrame-startFrame+1)*100;
 disp([num2str(pFrames), '% of selected frames has been tracked'])
-DataFolder=[handles.video_dir_text.String filesep 'Results' filesep 'Raw'];
-StrFile_out=[DataFolder filesep 'Out_',file(1:end-4),'.mat'];
+DataFolder = [handles.folder_name filesep 'Results' filesep 'Raw'];
+StrFile_out = [DataFolder filesep 'Out_',file(1:end-4),'.mat'];
 save(StrFile_out, 'track')
 
 msgbox('Track complete','TrAQ');
-end
 
+end

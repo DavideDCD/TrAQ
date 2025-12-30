@@ -1,7 +1,6 @@
 function update_arena_track(handles)
-global video  
 fn = round(str2double(get(handles.current_frame_edit,'String')));
-Frame = read(video,fn);
+Frame = read(handles.video,fn);
 
 axes(handles.oden_video_axes);
 cla(handles.oden_video_axes)

@@ -7,12 +7,12 @@ Centroid=handles.Centroid(:,i_first:i_last);
 Head=handles.Head(:,i_first:i_last);
 
 %% get zone vertices and areas
-deltaT=1/handles.videodata.framerate; %length of a frame in sec
+deltaT=1/handles.video.FrameRate; %length of a frame in sec
 X1=round(min(handles.data.arena(:,1)));
 X2=round(max(handles.data.arena(:,1)));
 D1=X2-X1;
-Xaxis=str2double(handles.data.arena_x);
-Yaxis=str2double(handles.data.arena_y);
+Xaxis=handles.data.arena_x;
+Yaxis=handles.data.arena_y;
 pixels_per_cm=D1/Xaxis;
 if ~isfield(handles, 'zones') || ~isstruct(handles.zones)
     errordlg('No zones defined. Please define or load zones first.', 'Zone Error');
@@ -27,7 +27,10 @@ for i = 1:length(zones)
     vertices{i} = (handles.zones(i).vertices(1:end-1,:));
     zone_area(i) = polyarea(vertices{i}(:,1),vertices{i}(:,2))/pixels_per_cm^2;
 end
-
+nose_position = NaN(length(zones),length(Head));
+tot_nose_position = NaN(length(zones),length(Head));
+body_position = NaN(length(zones),length(Centroid));
+tot_body_position = NaN(length(zones),length(Centroid));
 for i = 1:length(zones)
     % check if mouse was in zone for each frame
     nose_position(i,:) = inpolygon(Head(1,:),Head(2,:),vertices{i}(:,1),vertices{i}(:,2)) ;
@@ -46,7 +49,7 @@ total_frames_body = tot_body_position(:,end);
 total_time_nose = total_frames_nose * deltaT;
 total_time_body = total_frames_body * deltaT;
 
-% first do nose ...
+% nose stats
 for k = 1:length(zones)
     zone_visits{k} = [];
     zone_transitions =     diff(nose_position(k,:));
@@ -71,10 +74,8 @@ for k = 1:length(zones)
     if ~isempty(zone_entries)
         for eni = 1:length(zone_entries)
             this_start = zone_entries(eni);
-            % we look for the first exit that is larger than this entry
-            % by design, there should be not additional entries before this
-            % exit
-            minind     = min(find(zone_exits > zone_entries(eni)));
+            % look for the first exit that is larger than this entry
+            minind     = find(zone_exits > zone_entries(eni), 1 );
             if isempty(minind) % if there is an entry without a subsequent exit
                 this_end = size(nose_position(k,:),2);
             else
@@ -90,10 +91,8 @@ nose_zone_visits    = zone_visits;
 nose_zone_durations = zone_durations;
 clear zone_visits zone_durations
 
-% then do body - the difference is only in the first line within the
-% loop
+% body
 for k = 1:length(zones)
-    
     zone_visits{k} = [];
     zone_transitions =     diff(body_position(k,:));
     % the one is added because this is a diff operation
@@ -117,10 +116,8 @@ for k = 1:length(zones)
     if ~isempty(zone_entries)
         for eni = 1:length(zone_entries)
             this_start = zone_entries(eni);
-            % we look for the first exit that is larger than this entry
-            % by design, there should be not additional entries before this
-            % exit
-            minind     = min(find(zone_exits > zone_entries(eni)));
+            % look for the first exit that is larger than this entry
+            minind     = find(zone_exits > zone_entries(eni), 1 );
             if isempty(minind) % if there is an entry without a subsequent exit
                 this_end = size(nose_position(k,:),2);
             else
@@ -147,21 +144,20 @@ end
 %% plot zone stats as a function of time
 figure
 set(gcf,'numbertitle','off')
-set(gcf,'name',['Zone occupancy as a function of time']);
+set(gcf,'name','Zone occupancy as a function of time');
 
 subplot(2,1,1)
 % run over each event
 for k = 1:length(zones)
-    % construct a vector of nans (all frames, including "bad ones")
+    % construct a vector of nans for all frames
     this_zone_times = nan(1,length(nose_position(1,:)));
     % assign an integer value to frames that include the event
-    this_zone_times(nose_position(k,:)) = k;
-    % plot then
+    this_zone_times(nose_position(k,:) > 0) = k; % Ensure indices are logical
+    % plot
     plot(Time,this_zone_times,'.');
-    %             set(ph,'color',zone_colors(zi,:))
     hold on
 end
-set(gca,'Ytick',[1:length(zones)]);
+set(gca,'Ytick',1:length(zones));
 set(gca,'YtickLabel',zone_names);
 set(gca,'YLim' ,[0 length(zones)+1]);
 set(gca,'xlim',[0 Time(end)])
@@ -170,17 +166,16 @@ title('Zone occupancy of nose as a function of time')
 
 subplot(2,1,2)
 for k = 1:length(zones)
-    % construct a vector of nans (all frames, including "bad ones")
+    % construct a vector of nans for all frames
     this_zone_times = nan(1,length(body_position(1,:)));
     % assign an integer value to frames that include the event
-    this_zone_times(body_position(k,:)) = k;
-    % plot then
+    this_zone_times(body_position(k,:) > 0) = k; % Ensure indices are logical
+    % plot 
     plot(Time,this_zone_times,'.');
-    %             set(ph,'color',zone_colors(zi,:))
     hold on
 end
 
-set(gca,'Ytick',[1:length(zones)]);
+set(gca,'Ytick',1:length(zones));
 set(gca,'YtickLabel',zone_names);
 set(gca,'YLim' ,[0 length(zones)+1]);
 set(gca,'xlim',[0 Time(end)])
@@ -189,7 +184,7 @@ title('Zone occupancy of body as a function of time')
 
 figure
 set(gcf,'numbertitle','off')
-set(gcf,'name',['Euclidean distance Head - ROIs centre']);
+set(gcf,'name','Euclidean distance Head - ROIs centre');
 
 % % This will plot the euclidean distance Head - ROIs centre
 plot(Time,ROI_distance(1,:));
@@ -219,20 +214,20 @@ end
 % % This will plot the number of visits per zone
 figure
 set(gcf,'numbertitle','off')
-set(gcf,'name',['Number of nose visits']);
+set(gcf,'name','Number of nose visits');
 bar(number_of_nose_visits);
 ylabel('Number of Visits')
 xlabel('Zones')
-set(gca,'Xtick',[1:length(zones)]);
+set(gca,'Xtick',1:length(zones));
 set(gca,'XtickLabel',zone_names);
 
 figure
 set(gcf,'numbertitle','off')
-set(gcf,'name',['Number of body visits']);
+set(gcf,'name','Number of body visits');
 bar(number_of_body_visits);
 ylabel('Number of Visits')
 xlabel('Zones')
-set(gca,'Xtick',[1:length(zones)]);
+set(gca,'Xtick',1:length(zones));
 set(gca,'XtickLabel',zone_names);
 
 stats.ROI_name=zone_names;

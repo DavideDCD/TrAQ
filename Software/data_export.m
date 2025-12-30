@@ -28,13 +28,13 @@ OUT{1,1}='Data provided by TrAQ, devoleped by MISPIN Lab';
 OUT{2,1}='Video file';
 OUT{2,2}=base_name;
 OUT{3,1}='Frame Rate (FPS):';
-OUT{3,2}=handles.videodata.framerate;
+OUT{3,2}=handles.video.FrameRate;
 OUT{4,1}='Duration (s):';
-OUT{4,2}=((i_last-i_first+1)/handles.videodata.framerate);
+OUT{4,2}=((i_last-i_first+1)/handles.video.FrameRate);
 OUT{5,1}='Total travelled Distance (cm):';
 OUT{5,2}=sum(handles.Distance(i_first:i_last));
 OUT{6,1}='Average Speed (cm/s):';
-OUT{6,2}=sum(handles.Distance(i_first:i_last))/((i_last-i_first+1)/handles.videodata.framerate);
+OUT{6,2}=sum(handles.Distance(i_first:i_last))/((i_last-i_first+1)/handles.video.FrameRate);
 OUT{7,1}='Mean of Speed (cm/s):';
 OUT{7,2}=mean(handles.V);
 OUT{8,1}='Speed STD (cm/s):';
@@ -84,7 +84,7 @@ end
 File=[P filesep 'Results' filesep 'output_' base_name '.xlsx'];
 sheet = 1;
 xlRange = 'A1';
-xlswrite(File,OUT,sheet,xlRange)
+writetable(cell2table(OUT), File, 'Sheet', sheet, 'Range', xlRange);
 
 clear OUT
 try
@@ -146,6 +146,6 @@ assignin('base','OUT',OUT)
 File=[P filesep 'Results' filesep 'output_' base_name '.xlsx'];
 sheet = 2;
 xlRange = 'A1';
-xlswrite(File,OUT,sheet,xlRange)
+writetable(cell2table(OUT), File, 'Sheet', sheet, 'Range', xlRange);
 catch
 end

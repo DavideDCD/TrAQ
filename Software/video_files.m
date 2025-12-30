@@ -1,9 +1,9 @@
 function video_files(handles)
 
-mp4files = dir([handles.video_dir_text.String filesep '*.mp4']); % to add additional file extensions copy this string
-avifiles = dir([handles.video_dir_text.String filesep '*.avi']);
-mpgfiles = dir([handles.video_dir_text.String filesep '*.mpg']);
-wmvfiles = dir([handles.video_dir_text.String filesep '*.wmv']);
+mp4files = dir([handles.folder_name filesep '*.mp4']); % to add additional file extensions copy this string
+avifiles = dir([handles.folder_name filesep '*.avi']);
+mpgfiles = dir([handles.folder_name filesep '*.mpg']);
+wmvfiles = dir([handles.folder_name filesep '*.wmv']);
 
 videofiles = [mp4files;avifiles;mpgfiles;wmvfiles];               % and add here the variable name
 video_files = {videofiles.name};
